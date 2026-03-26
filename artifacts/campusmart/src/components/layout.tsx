@@ -84,8 +84,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-border z-50 pb-safe">
-        <div className="flex items-center justify-around h-16 px-2">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E2E8F0] z-50" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="flex items-stretch justify-around h-[58px]">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = location === item.href;
@@ -93,17 +93,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Link 
                 key={item.href} 
                 href={item.href}
-                className="flex flex-col items-center justify-center w-full h-full space-y-1 relative"
+                className="flex flex-col items-center justify-center flex-1 gap-[3px] py-2"
               >
-                <div className={cn(
-                  "p-1.5 rounded-xl transition-all duration-300",
-                  isActive ? "bg-primary/10 text-primary scale-110" : "text-muted-foreground"
-                )}>
-                  <Icon className={cn("w-6 h-6", isActive && "fill-primary/20")} strokeWidth={isActive ? 2.5 : 2} />
-                </div>
+                <Icon
+                  className={cn(
+                    "w-[22px] h-[22px] transition-colors",
+                    isActive ? "text-[#0A2342]" : "text-[#9AA5B8]"
+                  )}
+                  strokeWidth={isActive ? 2.5 : 1.8}
+                />
                 <span className={cn(
-                  "text-[10px] font-semibold transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  "text-[10px] font-medium leading-none transition-colors",
+                  isActive ? "text-[#0A2342] font-semibold" : "text-[#9AA5B8]"
                 )}>
                   {item.label}
                 </span>
