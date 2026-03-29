@@ -36,6 +36,19 @@ export function AuthModal() {
     }
   };
 
+  const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === "object") {
+      const e = error as Record<string, unknown>;
+      if (e.data && typeof e.data === "object") {
+        const d = e.data as Record<string, unknown>;
+        if (typeof d.message === "string" && d.message) return d.message;
+        if (typeof d.error === "string" && d.error) return d.error;
+      }
+      if (typeof e.message === "string" && e.message) return e.message;
+    }
+    return fallback;
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -152,7 +165,9 @@ export function AuthModal() {
                       {loginMutation.isPending ? "Signing in..." : "Sign In"}
                     </button>
                     {loginMutation.isError && (
-                      <p className="text-accent text-sm text-center">Invalid credentials. Please try again.</p>
+                      <p className="text-accent text-sm text-center">
+                        {getErrorMessage(loginMutation.error, "Invalid credentials. Please try again.")}
+                      </p>
                     )}
                   </motion.form>
                 ) : (
@@ -244,7 +259,9 @@ export function AuthModal() {
                       {registerMutation.isPending ? "Creating account..." : "Create Account"}
                     </button>
                     {registerMutation.isError && (
-                      <p className="text-accent text-sm text-center">Registration failed. Try again.</p>
+                      <p className="text-accent text-sm text-center">
+                        {getErrorMessage(registerMutation.error, "Registration failed. Try again.")}
+                      </p>
                     )}
                   </motion.form>
                 )}

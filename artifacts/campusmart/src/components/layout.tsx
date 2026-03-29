@@ -4,7 +4,11 @@ import { Home, ShoppingBag, UtensilsCrossed, Building2, User, Bell, ShoppingCart
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useGetCart } from "@workspace/api-client-react";
-import campusmartLogo from "/campusmart-logo.png";
+import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import NotificationModal from "./notification-modal";
+
+import campusmartLogo from "/images/Gemini_Generated_Image_t3l1e2t3l1e2t3l1 (3).png";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
@@ -17,7 +21,8 @@ const NAV_ITEMS = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { isAuthenticated, openAuthModal } = useAuth();
-  const { data: cart } = useGetCart({ query: { enabled: isAuthenticated, retry: false } });
+  const { data: cart } = useGetCart({ query: { queryKey: ["cart", isAuthenticated], enabled: isAuthenticated, retry: false } });
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const cartCount = cart?.itemCount || 0;
 
@@ -27,8 +32,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E2E8F0] h-14">
         <div className="flex items-center justify-between h-full px-4 max-w-7xl mx-auto">
           {/* Logo */}
-          <Link href="/">
-            <img src={campusmartLogo} alt="CampusMart" className="h-8 w-auto object-contain" />
+          <Link href="/" className="flex items-center group">
+            <div className="h-12 overflow-hidden flex items-center">
+              <img 
+                src={campusmartLogo} 
+                alt="CampusMart" 
+                className="h-16 w-auto object-contain transition-transform group-hover:scale-105"
+                style={{ mixBlendMode: 'multiply' }}
+              />
+            </div>
           </Link>
 
           {/* Right icons */}
@@ -49,13 +61,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </span>
               )}
             </Link>
-            <button className="relative p-2 rounded-full hover:bg-gray-100 transition-colors">
+            <button 
+              onClick={() => setShowNotifications(true)}
+              className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
               <Bell className="w-6 h-6 text-[#0A2342]" strokeWidth={1.8} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-[#D0282E] rounded-full border-2 border-white" />
+              <span className="absolute top-2 right-2.5 w-2 h-2 bg-[#D0282E] rounded-full border-2 border-white animate-pulse" />
             </button>
           </div>
         </div>
       </header>
+
+      {/* Notifications Overlay */}
+      <AnimatePresence>
+        {showNotifications && (
+          <NotificationModal onClose={() => setShowNotifications(false)} />
+        )}
+      </AnimatePresence>
 
       {/* Main Content — padded for header + bottom nav */}
       <main className="flex-1 w-full pt-14 pb-[58px] max-w-7xl mx-auto w-full">

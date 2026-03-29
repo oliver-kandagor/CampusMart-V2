@@ -43,14 +43,23 @@ export default function ProductDetail() {
   }
 
   const handleAddToCart = async () => {
-    if (!isAuthenticated) { openAuthModal(); return; }
+    if (!isAuthenticated) { 
+      openAuthModal(); 
+      return; 
+    }
     try {
-      await addToCartMutation.mutateAsync({ data: { productId: product.id, quantity } });
-      await queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
+      await addToCartMutation.mutateAsync({ 
+        data: { 
+          productId: product.id, 
+          quantity: quantity 
+        } 
+      });
+      queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2500);
     } catch (err) {
-      console.error(err);
+      console.error("Add to cart error:", err);
+      alert("Failed to add to cart. Please try again.");
     }
   };
 
@@ -208,7 +217,16 @@ export default function ProductDetail() {
                 <p className="font-bold text-foreground text-sm">@{product.sellerUsername}</p>
               </div>
             </div>
-            <button className="px-4 py-2 border-2 border-[#0A2342]/20 text-[#0A2342] font-semibold rounded-xl hover:bg-[#0A2342]/5 text-sm transition-colors">
+            <button 
+              onClick={() => {
+                if (!isAuthenticated) {
+                  openAuthModal();
+                  return;
+                }
+                alert(`Chat feature coming soon! Contact @${product.sellerUsername} directly.`);
+              }}
+              className="px-4 py-2 border-2 border-[#0A2342]/20 text-[#0A2342] font-semibold rounded-xl hover:bg-[#0A2342]/5 text-sm transition-colors"
+            >
               Chat
             </button>
           </div>

@@ -11,8 +11,8 @@ export default function Food() {
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
   const { data: vendors, isLoading } = useListFoodVendors();
   const { data: menuItems, isLoading: menuLoading } = useListFoodItems(
-    selectedVendorId || "",
-    { query: { enabled: !!selectedVendorId } }
+    { vendorId: selectedVendorId || "" },
+    { query: { queryKey: ["foodItems", selectedVendorId], enabled: !!selectedVendorId } }
   );
   const { isAuthenticated, openAuthModal } = useAuth();
 

@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const { data: user, isError } = useGetCurrentUser({
     query: {
+      queryKey: ["currentUser", !!token],
       enabled: !!token,
       retry: false,
     },

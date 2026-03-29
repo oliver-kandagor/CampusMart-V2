@@ -1,17 +1,17 @@
-import { Search, BookOpen, Laptop, Shirt, Utensils, Key, PenTool, Armchair, ArrowRight } from "lucide-react";
+import { Search, ArrowRight } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { ProductCard } from "@/components/shared";
 import { useListProducts } from "@workspace/api-client-react";
 import { useState } from "react";
 
 const CATEGORIES = [
-  { name: "Books", icon: BookOpen, color: "bg-blue-100 text-blue-600", href: "/market" },
-  { name: "Electronics", icon: Laptop, color: "bg-purple-100 text-purple-600", href: "/market" },
-  { name: "Fashion", icon: Shirt, color: "bg-pink-100 text-pink-600", href: "/market" },
-  { name: "Food", icon: Utensils, color: "bg-orange-100 text-orange-600", href: "/food" },
-  { name: "Nrooms", icon: Key, color: "bg-green-100 text-green-600", href: "/nrooms" },
-  { name: "Stationery", icon: PenTool, color: "bg-yellow-100 text-yellow-600", href: "/market" },
-  { name: "Furniture", icon: Armchair, color: "bg-amber-100 text-amber-600", href: "/market" },
+  { name: "Books", image: "/images/cat_books.png", href: "/market" },
+  { name: "Electronics", image: "/images/cat_electronics.png", href: "/market" },
+  { name: "Fashion", image: "/images/cat_fashion.png", href: "/market" },
+  { name: "Food", image: "/images/cat_food.png", href: "/food" },
+  { name: "Nrooms", image: "/images/cat_nrooms.png", href: "/nrooms" },
+  { name: "Stationery", image: "/images/cat_stationery.png", href: "/market" },
+  { name: "Furniture", emoji: "🛋️", color: "bg-amber-100", href: "/market" },
 ];
 
 const BANNERS = [
@@ -23,17 +23,27 @@ const BANNERS = [
 export default function Home() {
   const [, navigate] = useLocation();
   const [searchVal, setSearchVal] = useState("");
-  const { data: featuredData, isLoading } = useListProducts({ featured: true, limit: 8 });
-  const { data: recentData } = useListProducts({ sort: "newest", limit: 6 });
+  const { data: featuredData, isLoading, isError: featuredError } = useListProducts({ featured: true, limit: 8 });
+  const { data: recentData, isError: recentError } = useListProducts({ sort: "newest", limit: 6 });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchVal.trim()) navigate(`/market?search=${encodeURIComponent(searchVal.trim())}`);
   };
 
+  const hasError = featuredError || recentError;
+
   return (
     <div className="pb-6">
       <div className="px-4 md:px-8 max-w-7xl mx-auto space-y-6 pt-3 md:pt-6">
+
+        {/* API Error Banner */}
+        {hasError && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm">
+            <p className="text-red-800 font-semibold">⚠️ Connection Issue</p>
+            <p className="text-red-700 text-xs mt-1">Unable to load products. Make sure the API server is running on port 5000.</p>
+          </div>
+        )}
 
         {/* Search */}
         <form onSubmit={handleSearch} className="relative">
@@ -74,17 +84,24 @@ export default function Home() {
         {/* Categories */}
         <section>
           <div className="flex overflow-x-auto hide-scrollbar gap-4 pb-2 -mx-4 px-4 md:mx-0 md:px-0">
-            {CATEGORIES.map((cat) => {
-              const Icon = cat.icon;
-              return (
-                <Link key={cat.name} href={cat.href} className="flex flex-col items-center gap-1.5 shrink-0 group">
-                  <div className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center shadow-sm ${cat.color} group-hover:scale-105 group-hover:shadow-md transition-all duration-300`}>
-                    <Icon className="w-6 h-6 md:w-7 md:h-7" />
-                  </div>
-                  <span className="text-[11px] font-medium text-foreground">{cat.name}</span>
-                </Link>
-              );
-            })}
+            {CATEGORIES.map((cat: any) => (
+              <Link key={cat.name} href={cat.href} className="flex flex-col items-center gap-1.5 shrink-0 group">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl overflow-hidden shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all duration-300 border border-gray-100">
+                  {cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className={`w-full h-full flex items-center justify-center text-2xl ${cat.color}`}>
+                      {cat.emoji}
+                    </div>
+                  )}
+                </div>
+                <span className="text-[11px] font-medium text-foreground">{cat.name}</span>
+              </Link>
+            ))}
           </div>
         </section>
 

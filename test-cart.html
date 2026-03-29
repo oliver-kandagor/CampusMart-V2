@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cart & Checkout</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>CampusMart Cart & Checkout Test</h1>
+    
+    <div>
+        <h2>1. Login First</h2>
+        <input type="email" id="email" placeholder="Email" value="test@example.com">
+        <input type="password" id="password" placeholder="Password" value="password123">
+        <button onclick="login()">Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div>
+        <h2>2. Add to Cart</h2>
+        <input type="text" id="productId" placeholder="Product ID" value="prod1">
+        <input type="number" id="quantity" placeholder="Quantity" value="1">
+        <button onclick="addToCart()">Add to Cart</button>
+        <div id="cartResult"></div>
+    </div>
+
+    <div>
+        <h2>3. View Cart</h2>
+        <button onclick="getCart()">Get Cart</button>
+        <div id="viewCartResult"></div>
+    </div>
+
+    <div>
+        <h2>4. Checkout</h2>
+        <input type="text" id="address" placeholder="Delivery Address" value="Room 101, Hostel A">
+        <button onclick="checkout()">Checkout</button>
+        <div id="checkoutResult"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+        let token = localStorage.getItem('campusmart_token');
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const res = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    token = data.token;
+                    localStorage.setItem('campusmart_token', token);
+                    document.getElementById('loginResult').innerHTML = 
+                        `<p class="success">✓ Logged in as ${data.user.username}</p>`;
+                } else {
+                    document.getElementById('loginResult').innerHTML = 
+                        `<p class="error">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('loginResult').innerHTML = 
+                    `<p class="error">✗ ${err.message}</p>`;
+            }
+        }
+
+        async function addToCart() {
+            const productId = document.getElementById('productId').value;
+            const quantity = parseInt(document.getElementById('quantity').value);
+            
+            try {
+                const res = await fetch(`${API_URL}/api/cart`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ productId, quantity })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    document.getElementById('cartResult').innerHTML = 
+                        `<p class="success">✓ Added to cart!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('cartResult').innerHTML = 
+                        `<p class="error">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('cartResult').innerHTML = 
+                    `<p class="error">✗ ${err.message}</p>`;
+            }
+        }
+
+        async function getCart() {
+            try {
+                const res = await fetch(`${API_URL}/api/cart`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    document.getElementById('viewCartResult').innerHTML = 
+                        `<p class="success">✓ Cart loaded</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('viewCartResult').innerHTML = 
+                        `<p class="error">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('viewCartResult').innerHTML = 
+                    `<p class="error">✗ ${err.message}</p>`;
+            }
+        }
+
+        async function checkout() {
+            const deliveryAddress = document.getElementById('address').value;
+            
+            try {
+                const res = await fetch(`${API_URL}/api/orders/checkout`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ deliveryAddress })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    document.getElementById('checkoutResult').innerHTML = 
+                        `<p class="success">✓ Order placed!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('checkoutResult').innerHTML = 
+                        `<p class="error">✗ ${data.error}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('checkoutResult').innerHTML = 
+                    `<p class="error">✗ ${err.message}</p>`;
+            }
+        }
+
+        // Check if already logged in
+        if (token) {
+            document.getElementById('loginResult').innerHTML = 
+                '<p class="success">✓ Already logged in</p>';
+        }
+    </script>
+</body>
+</html>

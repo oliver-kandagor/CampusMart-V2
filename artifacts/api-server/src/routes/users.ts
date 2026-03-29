@@ -1,16 +1,18 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { usersTable, productsTable, wishlistTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
-import { randomBytes } from "crypto";
-import { extractUser } from "./auth";
+import { usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { createHash } from "crypto";
+import { extractUser, mockUsers, useMockDB } from "./auth";
+import { getLocalDB, saveLocalDB } from "../lib/mock-storage";
 
 const router: IRouter = Router();
 
-function generateId(): string {
-  return randomBytes(16).toString("hex");
+function hashPassword(password: string): string {
+  return createHash("sha256").update(password + "campusmart-salt").digest("hex");
 }
 
+// Get user profile
 router.get("/profile", async (req, res) => {
   const userId = extractUser(req);
   if (!userId) {
@@ -18,34 +20,38 @@ router.get("/profile", async (req, res) => {
     return;
   }
   try {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
     }
 
-    const [listingsCount] = await db.select({ count: sql<number>`count(*)` })
-      .from(productsTable)
-      .where(eq(productsTable.sellerId, userId));
-
-    res.json({
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      username: user.username,
-      campus: user.campus,
-      avatarUrl: user.avatarUrl,
-      rating: 4.8,
-      totalSales: 0,
-      totalListings: Number(listingsCount?.count || 0),
-      createdAt: user.createdAt,
-    });
+    const { passwordHash, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
   } catch (err) {
-    req.log.error(err);
+    console.error(err);
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
 
+// Get user by ID
+router.get("/:id", async (req, res) => {
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.params.id));
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const { passwordHash, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
+
+// Update user profile
 router.put("/profile", async (req, res) => {
   const userId = extractUser(req);
   if (!userId) {
@@ -54,102 +60,134 @@ router.put("/profile", async (req, res) => {
   }
   try {
     const { username, phone, campus, avatarUrl } = req.body;
-    const updates: any = {};
-    if (username) updates.username = username;
-    if (phone) updates.phone = phone;
-    if (campus) updates.campus = campus;
-    if (avatarUrl) updates.avatarUrl = avatarUrl;
 
-    const [user] = await db.update(usersTable)
-      .set(updates)
-      .where(eq(usersTable.id, userId))
-      .returning();
+    if (useMockDB) {
+      const existing = mockUsers.get(userId);
+      if (!existing) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      
+      const updated = {
+        ...existing,
+        username: username || existing.username,
+        phone: phone !== undefined ? phone : existing.phone,
+        campus: campus !== undefined ? campus : existing.campus,
+        avatarUrl: avatarUrl !== undefined ? avatarUrl : existing.avatarUrl,
+      };
+      
+      mockUsers.set(userId, updated);
+      
+      const dbInstance = getLocalDB();
+      const uIndex = dbInstance.users.findIndex(u => u.id === userId);
+      if (uIndex !== -1) {
+        dbInstance.users[uIndex] = updated;
+      } else {
+        dbInstance.users.push(updated);
+      }
+      saveLocalDB();
+      
+      const { passwordHash, ...userWithoutPassword } = updated;
+      res.json(userWithoutPassword);
+    } else {
+      const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+      if (!existing) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
 
-    res.json({
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      username: user.username,
-      campus: user.campus,
-      avatarUrl: user.avatarUrl,
-      rating: 4.8,
-      totalSales: 0,
-      totalListings: 0,
-      createdAt: user.createdAt,
-    });
+      const [updated] = await db.update(usersTable)
+        .set({
+          username: username || existing.username,
+          phone: phone !== undefined ? phone : existing.phone,
+          campus: campus !== undefined ? campus : existing.campus,
+          avatarUrl: avatarUrl !== undefined ? avatarUrl : existing.avatarUrl,
+        })
+        .where(eq(usersTable.id, userId))
+        .returning();
+
+      const { passwordHash, ...userWithoutPassword } = updated;
+      res.json(userWithoutPassword);
+    }
   } catch (err) {
-    req.log.error(err);
+    console.error(err);
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
 
-router.get("/wishlist", async (req, res) => {
-  const userId = extractUser(req);
-  if (!userId) {
-    res.json([]);
-    return;
-  }
-  try {
-    const rows = await db.select({
-      product: productsTable,
-    }).from(wishlistTable)
-      .leftJoin(productsTable, eq(wishlistTable.productId, productsTable.id))
-      .where(eq(wishlistTable.userId, userId));
-
-    const products = rows.map(({ product }) => ({
-      ...product,
-      isWishlisted: true,
-    })).filter(p => p.id);
-
-    res.json(products);
-  } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to fetch wishlist" });
-  }
-});
-
-router.post("/wishlist", async (req, res) => {
+// Change password
+router.post("/change-password", async (req, res) => {
   const userId = extractUser(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   try {
-    const { productId } = req.body;
-    const existing = await db.select().from(wishlistTable)
-      .where(and(eq(wishlistTable.userId, userId), eq(wishlistTable.productId, productId)))
-      .limit(1);
-
-    if (existing.length > 0) {
-      await db.delete(wishlistTable).where(eq(wishlistTable.id, existing[0].id));
-      res.json({ wishlisted: false, productId });
-    } else {
-      await db.insert(wishlistTable).values({
-        id: generateId(),
-        userId,
-        productId,
-      });
-      res.json({ wishlisted: true, productId });
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: "Missing required fields" });
+      return;
     }
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    if (user.passwordHash !== hashPassword(currentPassword)) {
+      res.status(401).json({ error: "Current password is incorrect" });
+      return;
+    }
+
+    const [updated] = await db.update(usersTable)
+      .set({ passwordHash: hashPassword(newPassword) })
+      .where(eq(usersTable.id, userId))
+      .returning();
+
+    const { passwordHash, ...userWithoutPassword } = updated;
+    res.json({ success: true, message: "Password changed", user: userWithoutPassword });
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to update wishlist" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to change password" });
   }
 });
 
-router.get("/listings", async (req, res) => {
+// Get user stats (for seller dashboard)
+router.get("/stats/seller", async (req, res) => {
   const userId = extractUser(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   try {
-    const products = await db.select().from(productsTable)
-      .where(eq(productsTable.sellerId, userId));
-    res.json(products);
+    // This would require additional tables for tracking sales, reviews, etc.
+    // For now, return mock data
+    res.json({
+      totalSales: 0,
+      totalEarnings: 0,
+      totalProducts: 0,
+      averageRating: 4.5,
+      totalReviews: 0,
+    });
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to fetch listings" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
+// Search users
+router.get("/search/:query", async (req, res) => {
+  try {
+    const users = await db.select().from(usersTable)
+      .where(eq(usersTable.username, req.params.query))
+      .limit(10);
+
+    const filtered = users.map(({ passwordHash, ...user }) => user);
+    res.json(filtered);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to search users" });
   }
 });
 

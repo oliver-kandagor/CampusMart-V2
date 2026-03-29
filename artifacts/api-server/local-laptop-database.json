@@ -1,0 +1,16 @@
+{
+  "users": [
+    {
+      "id": "57441de7b30084d15a64d81113895b3e",
+      "email": "hamisi@gmail.com",
+      "phone": "0759159881",
+      "username": "ALI",
+      "passwordHash": "052a0416efccda4800343cb32a7d91ec83b8fbb979e4a02c1611285e9c3eb599",
+      "campus": "University of Nairobi",
+      "avatarUrl": null,
+      "role": "student",
+      "createdAt": "2026-03-28T12:43:56.341Z"
+    }
+  ],
+  "products": []
+}

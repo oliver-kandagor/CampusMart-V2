@@ -1,18 +1,23 @@
 import { useAuth } from "@/lib/auth-context";
-import { useGetCart, useRemoveCartItem, useUpdateCartItem, getGetCartQueryKey } from "@workspace/api-client-react";
+import { useGetCart, useRemoveCartItem, useUpdateCartItem, getGetCartQueryKey, useCreateOrder } from "@workspace/api-client-react";
 import { formatKES } from "@/lib/utils";
-import { Minus, Plus, Trash2, ArrowRight, ShoppingBag } from "lucide-react";
-import { Link } from "wouter";
+import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, X } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 export default function Cart() {
   const { isAuthenticated, openAuthModal } = useAuth();
   const queryClient = useQueryClient();
-  const { data: cart, isLoading } = useGetCart({ query: { enabled: isAuthenticated } });
+  const [, navigate] = useLocation();
+  const { data: cart, isLoading } = useGetCart({ query: { queryKey: ["cart", isAuthenticated], enabled: isAuthenticated } });
 
   const updateMutation = useUpdateCartItem();
   const removeMutation = useRemoveCartItem();
+  const createOrderMutation = useCreateOrder();
+  
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
 
   const handleUpdate = async (itemId: string, quantity: number) => {
@@ -26,9 +31,30 @@ export default function Cart() {
   };
 
   const handleCheckout = () => {
+    setShowCheckoutModal(true);
+  };
+
+  const handleConfirmCheckout = async () => {
+    if (!deliveryAddress.trim()) {
+      alert("Please enter a delivery address");
+      return;
+    }
+    
     setCheckingOut(true);
-    // Simulate checkout
-    setTimeout(() => setCheckingOut(false), 2000);
+    try {
+      await createOrderMutation.mutateAsync({ 
+        data: { deliveryAddress: deliveryAddress.trim() } 
+      });
+      queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
+      setShowCheckoutModal(false);
+      alert("Order placed successfully! 🎉");
+      navigate("/profile");
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Failed to place order. Please try again.");
+    } finally {
+      setCheckingOut(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -205,6 +231,61 @@ export default function Cart() {
           {checkingOut ? "Processing..." : <>Checkout <ArrowRight className="w-4 h-4" /></>}
         </button>
       </div>
+
+      {/* Checkout Modal */}
+      {showCheckoutModal && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !checkingOut && setShowCheckoutModal(false)} />
+          <div className="relative z-10 w-full sm:max-w-md bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="font-bold text-lg text-[#0A2342]">Checkout</h2>
+              <button 
+                onClick={() => !checkingOut && setShowCheckoutModal(false)}
+                disabled={checkingOut}
+                className="p-1 hover:bg-muted rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-2">
+                  Delivery Address
+                </label>
+                <textarea
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  placeholder="Enter your delivery address (room number, hostel, campus location...)"
+                  className="w-full px-4 py-3 border border-border rounded-xl text-sm focus:border-[#0A2342] focus:ring-2 focus:ring-[#0A2342]/10 outline-none transition-all resize-none"
+                  rows={4}
+                  disabled={checkingOut}
+                />
+              </div>
+              <div className="bg-muted/50 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Items ({cart?.itemCount})</span>
+                  <span className="font-medium">{formatKES(cart?.total || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Delivery</span>
+                  <span className="text-[#1A7A4A] font-medium">FREE</span>
+                </div>
+                <div className="border-t border-border pt-2 flex justify-between items-center">
+                  <span className="font-bold text-foreground">Total</span>
+                  <span className="font-display font-bold text-xl text-[#1A7A4A]">{formatKES(cart?.total || 0)}</span>
+                </div>
+              </div>
+              <button
+                onClick={handleConfirmCheckout}
+                disabled={checkingOut || !deliveryAddress.trim()}
+                className="w-full py-3.5 bg-[#0A2342] text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {checkingOut ? "Processing..." : "Confirm Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
